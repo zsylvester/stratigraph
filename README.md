@@ -1,4 +1,4 @@
-<img src="https://github.com/zsylvester/stratigraph/blob/main/stratigraph_logo.png" width="300">
+<img src="https://github.com/zsylvester/stratigraph/blob/main/stratigraph_logo.png" width="400">
 
 ## stratigraph
 
@@ -8,11 +8,19 @@ Stratigraphic data can be visualized in time or in space. In the time domain, 's
 
 <img src="https://github.com/zsylvester/stratigraph/blob/main/barrell_fig_100.png" width="600">
 
-
-Wheeler's first chronostratigraphic diagram (Wheeler, 1964) might look something like this (diagram on the right):
-
+Wheeler's first chronostratigraphic diagram (Wheeler, 1964) might look something like this:
 
 <img src="https://github.com/zsylvester/stratigraph/blob/main/wheeler_reconstruction.png" width="600">
+
+'stratigraph' is best suited for more complex datasets, for example the ones derived from experiments where the surface topography is carefully tracked through time. For example, this is a dip section through the deposits of the XES-02 experiment, which was run at St. Anthony Falls Laboratory, University of Minnesota:
+
+<img src="https://github.com/zsylvester/stratigraph/blob/main/XES02_3D_dip_section_130.png" width="600">
+
+The cross section in the upper panel is colored by water depth (not grain size); the lower panel shows the corresponding Wheeler diagram.
+
+'stratigraph' can also be used to display stratigraphic models in 3D; for example, this is a meandering river model (created with 'meanderpy'):
+
+<img src="https://github.com/zsylvester/stratigraph/blob/main/meanderpy_model_1_v_small.png" width="600">
 
 
 ## Requirements
