@@ -22,6 +22,11 @@ The cross section in the upper panel is colored by water depth (not grain size);
 
 <img src="https://github.com/zsylvester/stratigraph/blob/main/meanderpy_model_1_v_small.jpg" width="600">
 
+If you want to show more of the stratigraphy, you can create an 'exploded view':
+
+<img src="https://github.com/zsylvester/stratigraph/blob/main/TWDB_17_1_exploded_view.png" width="600">
+
+The 4 jupyter notebooks in [this folder](https://github.com/zsylvester/stratigraph/tree/main/stratigraph) illustrate the ways 'stratigraph' can be used to visualize stratigraphy.
 
 ## Requirements
 
