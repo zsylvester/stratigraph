@@ -32,7 +32,11 @@ The 4 jupyter notebooks in [this folder](https://github.com/zsylvester/stratigra
 
 - matplotlib
 - numpy
+- pandas
 - mayavi
-- PIL
 - scipy
+- scikit-learn
+- scikit-image
+- Pillow
+- shapely
 - tqdm
