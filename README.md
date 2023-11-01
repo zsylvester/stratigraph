@@ -20,7 +20,7 @@ The cross section in the upper panel is colored by water depth (not grain size);
 
 'stratigraph' can also be used to display stratigraphic models in 3D; for example, this is a meandering river model (created with 'meanderpy'):
 
-<img src="https://github.com/zsylvester/stratigraph/blob/main/meanderpy_model_1_v_small.png" width="600">
+<img src="https://github.com/zsylvester/stratigraph/blob/main/meanderpy_model_1_v_small.jpg" width="600">
 
 
 ## Requirements
