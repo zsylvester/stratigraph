@@ -267,6 +267,16 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
                     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
 
+            if color_mode == 'age':
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+
 
             count = count+1
             # print("block "+str(count)+" done, out of "+str(nx*ny)+" blocks")

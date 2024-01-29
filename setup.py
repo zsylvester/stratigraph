@@ -14,7 +14,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/zsylvester/stratigraph",
-    packages=['stratipy'],
+    packages=['stratigraph'],
     install_requires=['numpy','matplotlib',
         'scipy','mayavi','pillow','tqdm'],
     classifiers=[

@@ -33,6 +33,7 @@ The 4 jupyter notebooks in [this folder](https://github.com/zsylvester/stratigra
 - matplotlib
 - numpy
 - pandas
+- jupyter
 - mayavi
 - scipy
 - scikit-learn
@@ -40,3 +41,11 @@ The 4 jupyter notebooks in [this folder](https://github.com/zsylvester/stratigra
 - Pillow
 - shapely
 - tqdm
+
+See also 'requirements.yml' file. This file can be used to create a virtual environment.
+
+## Installation
+
+'stratigraph' can be installed using 'pip':
+
+`pip install stratigraph`
