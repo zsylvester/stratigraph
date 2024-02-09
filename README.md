@@ -30,22 +30,26 @@ The 4 Jupyter notebooks in [this folder](notebooks) illustrate the ways `stratig
 
 ## Requirements
 
-- matplotlib
-- numpy
-- pandas
-- jupyter
-- mayavi
-- scipy
-- scikit-learn
-- scikit-image
-- Pillow
-- shapely
-- tqdm
+The following packages are required and will be installed when you install `stratigraph`.
 
-See also `requirements.yml` file. This file can be used to create a virtual environment.
+- `matplotlib`
+- `numpy`
+- `mayavi`
+- `scipy`
+- `scikit-learn`
+- `scikit-image`
+- `Pillow`
+- `shapely`
+- `tqdm`
+
+To run the Jupyter Notebooks, you will also need `jupyter` and `pandas`. See also the `requirements.yml` file. This file can be used to create a virtual environment.
 
 ## Installation
 
+First install `mayavi` according to [the installation instructions](https://docs.enthought.com/mayavi/mayavi/installation.html). You can also install it with Conda: `conda install -c conda-forge mayavi`.
+
 `stratigraph` can be installed using `pip`:
 
-`pip install stratigraph`
+```shell
+pip install stratigraph
+```
