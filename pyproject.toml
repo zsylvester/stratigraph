@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "setuptools-scm>=7.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "stratigraph"
-version = "0.0.1"
+dynamic = ["version"]
 requires-python = ">=3.8"
 authors = [
   { name="Zoltan Sylvester", email="zoltan.sylvester@beg.utexas.edu" },
@@ -15,7 +15,7 @@ readme = "README.md"
 keywords = ["geology", "geoscience", "stratigraphy", "chronostratigraphy", "visualization"]
 classifiers = [
     "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering",
     "Development Status :: 4 - Beta",
     "Natural Language :: English",
     "Programming Language :: Python :: 3.8",
@@ -40,6 +40,9 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["stratigraph"]
+
+[tool.setuptools_scm]
+# This section is empty but required for dynamic versioning.
 
 [project.urls]
 "Homepage" = "https://github.com/zsylvester/stratigraph"
