@@ -58,7 +58,7 @@ pip install stratigraph
 
 ## Citing stratigraph
 
-If you use `stratigrpah` in your work, please cite this paper:
+If you use `stratigraph` in your work, please cite this paper:
 <blockquote>
 Sylvester, Z., Straub, K. M., and Covault, J. A. (2024), Stratigraphy in space and time: A reproducible approach to analysis and visualization, Earth Science Reviews, v. 250, 104706. <a href="https://doi.org/10.1016/j.earscirev.2024.104706">https://doi.org/10.1016/j.earscirev.2024.104706</a>
 </blockquote>
