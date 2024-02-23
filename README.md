@@ -26,7 +26,9 @@ If you want to show more of the stratigraphy, you can create an 'exploded view':
 
 <img src="images/TWDB_17_1_exploded_view.png" width="600">
 
-The 4 Jupyter notebooks in [this folder](notebooks) illustrate the ways `stratigraph` can be used to visualize stratigraphy.
+The four Jupyter notebooks in [this folder](notebooks) illustrate the ways `stratigraph` can be used to visualize stratigraphy.
+
+For more details, see [this paper](https://doi.org/10.1016/j.earscirev.2024.104706).
 
 ## Requirements
 
@@ -53,3 +55,10 @@ First install `mayavi` according to [the installation instructions](https://docs
 ```shell
 pip install stratigraph
 ```
+
+## Citing stratigraph
+
+If you use `stratigrpah` in your work, please cite this paper:
+<blockquote>
+Sylvester, Z., Straub, K. M., and Covault, J. A. (2024), Stratigraphy in space and time: A reproducible approach to analysis and visualization, Earth Science Reviews, v. 250, 104706. <a href="https://doi.org/10.1016/j.earscirev.2024.104706">https://doi.org/10.1016/j.earscirev.2024.104706</a>
+</blockquote>
