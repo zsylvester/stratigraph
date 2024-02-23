@@ -236,11 +236,11 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
             xoffset = x0 + (x1+i*gap)*dx
             yoffset = y0 + (y1+j*gap)*dx
             if texture is not None:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, color_mode, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap='Blues', kmeans_colors=kmeans_colors)
             else:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, color_mode, bottom, opacity, texture=None, sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=None, sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
@@ -340,7 +340,7 @@ def create_fence_diagram(topo, strat, nx, ny, dx, ve, color_mode, linewidth, bot
 
     r,c,ts=np.shape(strat)
     
-    create_block_diagram(strat, dx, ve, color_mode, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
+    create_block_diagram(strat, dx, ve, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
         xoffset=0, yoffset=0, scale=scale, ci=None, plot_contours=None, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
         plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
