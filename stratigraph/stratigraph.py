@@ -575,7 +575,7 @@ class LineBuilder:
 def select_random_section(strat):
     fig = plt.figure(figsize=(8,6))
     ax = fig.add_subplot(111)
-    ax.imshow(strat[:,:,-1],cmap='viridis')
+    ax.imshow(strat[:,:,-1], origin='lower', cmap='viridis')
     plt.tight_layout()
     ax.set_title('click to build line segments')
     line, = ax.plot([], [])  # empty line
