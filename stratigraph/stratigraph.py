@@ -15,31 +15,32 @@ import scipy
 from sklearn.cluster import KMeans
 import math
 
-def create_block_diagram(strat, dx, ve, color_mode, bottom, opacity, texture=None, sea_level=None, 
-    xoffset=0, yoffset=0, scale=1, ci=None, plot_contours=None, topo_min=None, topo_max=None, plot_sides=True, 
+def create_block_diagram(strat, dx, ve, bottom, opacity, texture=None, sea_level=None, 
+    xoffset=0, yoffset=0, scale=1, ci=None, plot_contours=False, topo_min=None, topo_max=None, plot_sides=True, 
     plot_water=False, plot_surf=True, surf_cmap='Blues', kmeans_colors=None):
-    """function for creating a 3D block diagram in Mayavi
-    topo - 
-    strat - input array with stratigraphic surfaces
-    dx - size of gridcells in the horizontal direction in 'strat'
-    ve - vertical exaggeration
-    color_mode
-    bottom - elevation value for the bottom of the block
-    opacity
-    texture
-    sea_level
-    xoffset - offset in the x-direction relative to 0
-    yoffset
-    scale - scaling factor
-    ci - contour interval
-    plot_contours - True if you want to plot contours on the top surface
-    topo_min
-    topo_max
-    plot_sides
-    plot_water
-    plot_surf
-    surf_cmap
-    kmeans_colors
+    """
+    Create a 3D block diagram using Mayavi
+
+    Args:
+        strat: input array with stratigraphic surfaces
+        dx: size of gridcells in the horizontal direction in 'strat'
+        ve: vertical exaggeration
+        bottom: elevation value for the bottom of the block
+        opacity: opacity of the top surface if a texture (photo) is used to color it (number between 0 and 1)
+        texture: texture (photo) to be used on the top surface (default is None)
+        sea_level: elevation of sea level (needed if you want to plot the water)
+        xoffset: offset in the x-direction relative to 0
+        yoffset: offset in the y-direction relative to 0
+        scale: scaling factor
+        ci: contour interval
+        plot_contours: 'True' if you want to plot contours on the top surface (default is 'False')
+        topo_min: minimum elevation, used when contouring and/or coloring the top surface
+        topo_max: maximum elevation, used when contouring and/or coloring the top surface
+        plot_sides: 'True' if you want to plot the sides of the block. These go from the value of 'bottom' to the basal z surface
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_surf: 'True' if you want to plot top surface (default is 'True')
+        surf_cmap: colormap used for top surface topography
+        kmeans_colors: colormap used for color photograph that is draped on the top surface (derived from k-means clustering on the original photo)
     """
 
     r,c,ts = np.shape(strat)
@@ -61,7 +62,7 @@ def create_block_diagram(strat, dx, ve, color_mode, bottom, opacity, texture=Non
         mlab.contour_surf(X1, Y1, z, contours=contours, warp_scale=ve, color=(0,0,0), line_width=1.0)
     
     if plot_surf:
-        if texture is not None: 
+        if texture is not None: # ues texture if it is provided
             surf = mlab.mesh(X1_grid, Y1_grid, ve*z, scalars = texture, colormap=surf_cmap, vmin=0, vmax=255) 
             if kmeans_colors is not None:
                 lut = surf.module_manager.scalar_lut_manager.lut.table.to_array()
@@ -69,7 +70,7 @@ def create_block_diagram(strat, dx, ve, color_mode, bottom, opacity, texture=Non
                 lut[:,:3] = kmeans_colors
                 lut[:, -1] = opacity * 255
                 surf.module_manager.scalar_lut_manager.lut.table = lut
-        else:
+        else: # color surface by topography / bathymetry
             surf = mlab.mesh(X1_grid, Y1_grid, ve*z, colormap=surf_cmap, vmin=topo_min, vmax=topo_max, opacity=opacity)
 
     if plot_sides:
@@ -112,7 +113,6 @@ def create_block_diagram(strat, dx, ve, color_mode, bottom, opacity, texture=Non
         x = scale*(xoffset + vertices[:,1])
         z = scale*bottom*np.ones(np.shape(vertices[:,0]))
         mlab.triangular_mesh(x, y, ve*z, triangles, color=gray, opacity = 1)
-
 
     if plot_water:
         blue = (0.255, 0.412, 0.882)
@@ -173,36 +173,51 @@ def create_block_diagram(strat, dx, ve, color_mode, bottom, opacity, texture=Non
 
 def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth, bottom, opacity, x0=0, y0=0, water_depth=100, subsid=None, prop=None, 
     prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, texture=None, sea_level=None, 
-    xoffset=0, yoffset=0, scale=1, ci=None, plot_contours=None, topo_min=None, topo_max=None, plot_sides=True, 
+    scale=1, ci=None, plot_contours=False, topo_min=None, topo_max=None, plot_sides=True, 
     plot_water=False, plot_surf=True, surf_cmap='Blues', kmeans_colors=None, line_freq=1):
-    """function for creating an exploded-view block diagram
-    inputs:
-    topo - stack of topographic surfaces
-    strat - stack of stratigraphic surfaces
-    prop
-    facies - 1D array of facies codes for layers
-    texture
-    sea_level
-    x0
-    y0
-    nx - number of blocks in x direction
-    ny - number of blocks in y direction
-    gap - gap between blocks (number of gridcells)
-    dx - gridcell size
-    ve - vertical exaggeration
-    scale - scaling factor (for whole model)
-    plot_contours - if equals 1, contours will be plotted on the top surface
-    plot_sides
-    plot_water
-    color_mode - determines what kind of plot is created; can be 'property', 'time', or 'facies'
-    colors - colors scheme for facies (list of RGB values)
-    cmap
-    linewidth - tube radius for plotting layers on the sides
-    bottom - elevation value for the bottom of the block
-    topo_min
-    topo_max
-    ci
-    opacity
+    """
+    Create an exploded-view block diagram
+
+    Args:
+        topo: stack of topographic surfaces
+        strat: stack of stratigraphic surfaces
+        nx: number of blocks in x direction
+        ny: number of blocks in y direction
+        gap: gap between blocks (number of gridcells)
+        dx: gridcell size (same in x and y directions)
+        ve: vertical exaggeration
+        color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'
+        linewidth: line thickness for plotting layers on the sides
+        bottom: elevation value for the bottom of the block
+        opacity: opacity of the top surface if a texture (photo) is used to color it (number between 0 and 1)
+        x0: x-coordinate of starting point for plotting (default = 0)
+        y0: y-coordinate of starting point for plotting (default = 0)
+        water_depth: water depth value at which shallow / deep water boundary will be drawn if 'color_mode' is 'bathymetry'
+        subsid: array that contains the subidence / uplift values for each time step; default is 'None'
+        prop: property array used if 'color_mode' is 'property'
+        prop_cmap: colormap used for plotting properties
+        prop_vmin: 'vmin' parameter for plotting properties
+        prop_vmax: 'vmax' parameter for plotting properties
+        facies: 3D array of facies codes
+        facies_colors: colors used for plotting facies (list)
+        texture: photograph used for draping the top surface (default is 'None')
+        sea_level: sea (or base) level for each time step
+        scale: scaling factor (for whole model)
+        ci: contour interval for contours on top surface
+        plot_contours: if 'True', contours will be plotted on the top surface
+        topo_min: minimum elevation, used when contouring and/or coloring the top surface
+        topo_max: maximum elevation, used when contouring and/or coloring the top surface
+        plot_sides: 'True' if you want to plot the sides of the block. These go from the value of 'bottom' to the basal z surface
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_surf: 'True' if you want to plot top surface (default is 'True')
+        surf_cmap: colormap used for top surface topography
+        kmeans_colors: colormap used for color photograph that is draped on the top surface (derived from k-means clustering on the original photo)
+        line_freq: the frequency at which stratigraphic surfaces are plotted (every other surface is plotted if line_freq = 2)
+
+    Returns:
+        x_inds: indices along the x-axis used to insert breaks in the model and make the stratigrpahy visible
+        y_inds: indices along the y-axis used to insert breaks in the model and make the stratigrpahy visible
+
     """
     r,c,ts = np.shape(strat)
     count = 0
@@ -221,11 +236,11 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
             xoffset = x0 + (x1+i*gap)*dx
             yoffset = y0 + (y1+j*gap)*dx
             if texture is not None:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, color_mode, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap='Blues', kmeans_colors=kmeans_colors)
             else:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, color_mode, bottom, opacity, texture=None, sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=None, sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
@@ -267,6 +282,16 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
                     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
 
+            if color_mode == 'age':
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
+                    color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+
 
             count = count+1
             # print("block "+str(count)+" done, out of "+str(nx*ny)+" blocks")
@@ -274,26 +299,48 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
 
 def create_fence_diagram(topo, strat, nx, ny, dx, ve, color_mode, linewidth, bottom, opacity, subsid=None, prop=None, facies=None, texture=None, sea_level=None, scale=1, plot_sides=True, plot_water=False, plot_surf=False,  
     topo_min=None, topo_max=None, facies_colors=None, surf_cmap=None, prop_cmap=None, kmeans_colors=None, prop_vmin=None, prop_vmax=None, line_freq=1):
-    """function for creating a fence diagram
-    inputs:
-    strat - stack of stratigraphic surfaces
-    facies - 1D array of facies codes for layers
-    topo - stack of topographic surfaces
-    nx - number of strike sections
-    ny - number of dip sections
-    dx - gridcell size
-    ve - vertical exaggeration
-    scale - scaling factor (for whole model)
-    color_mode - determines what kind of plot is created; can be 'property', 'time', or 'facies'
-    facies_colors - colors scheme for facies (list of RGB values)
-    line_thickness - - tube radius for plotting layers on the sides
-    bottom - elevation value for the bottom of the block
-    opacity
+    """
+    Create a fence diagram
+
+    Args:
+        topo: stack of topographic surfaces
+        strat: stack of stratigraphic surfaces
+        nx: number of strike sections
+        ny: number of dip sections
+        dx: gridcell size
+        ve: vertical exaggeration
+        color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'
+        linewidth: line thickness for plotting layers on the sides
+        bottom: elevation value for the bottom of the block
+        opacity: opacity of the top surface if a texture (photo) is used to color it (number between 0 and 1)
+        subsid: array that contains the subidence / uplift values for each time step; default is 'None'
+        prop: property array used if 'color_mode' is 'property'
+        facies: 3D array of facies codes
+        texture: photograph used for draping the top surface (default is 'None')
+        sea_level: sea (or base) level for each time step
+        scale: scaling factor (for whole model)
+        plot_sides: 'True' if you want to plot the sides of the block. These go from the value of 'bottom' to the basal z surface
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_surf: 'True' if you want to plot top surface (default is 'True')
+        topo_min: minimum elevation, used when contouring and/or coloring the top surface
+        topo_max: maximum elevation, used when contouring and/or coloring the top surface
+        facies_colors: color scheme for facies (list of RGB values)
+        surf_cmap: colormap used for top surface topography
+        prop_cmap: colormap used for plotting properties
+        kmans_colors: colormap used for color photograph that is draped on the top surface (derived from k-means clustering on the original photo)
+        prop_vmin: 'vmin' parameter for plotting properties
+        prop_vmax: 'vmax' parameter for plotting properties
+        line_freq: the frequency at which stratigraphic surfaces are plotted (every other surface is plotted if line_freq = 2)
+
+    Returns:
+        x_inds: indices along the x-axis used to insert cross sections
+        y_inds: indices along the y-axis used to insert cross sections
+
     """
 
     r,c,ts=np.shape(strat)
     
-    create_block_diagram(strat, dx, ve, color_mode, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
+    create_block_diagram(strat, dx, ve, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
         xoffset=0, yoffset=0, scale=scale, ci=None, plot_contours=None, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
         plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
@@ -324,7 +371,19 @@ def create_fence_diagram(topo, strat, nx, ny, dx, ve, color_mode, linewidth, bot
     return x_inds, y_inds
 
 def triangulate_layers(top,base,dx):
-    """function for creating vertices of polygons that describe one layer"""
+    """
+    Create a list of x,y coordinates that describe one stratigraphic layer defined by 'top' and 'base'
+
+    Args:
+        top: elevations of the top of the layer (array)
+        base: elevations of the base of the layer (array)
+        dx: gridcell size
+
+    Returns:
+        Points: list of arrays of pairs of x, y coordinates that describe the polygon(s) for the layer
+        Inds: indices of the points in 'Points' that match the indices for 'top' and 'base'; used to pick the colors of the cells
+
+    """
     x = dx * np.arange(0,len(top))
     ind1 = np.argwhere(top-base>0).flatten()
     ind2 = np.argwhere(np.diff(ind1)>1)
@@ -363,10 +422,23 @@ def triangulate_layers(top,base,dx):
         vertices = np.vstack((x1,y)).T
         Points.append(vertices)
         Inds.append(inds)
-    return Points,Inds
+    return Points, Inds
 
-def triangulate_layers2(top,base,x):
-    """function for creating vertices of polygons that describe one layer"""
+def triangulate_layers2(top, base, x):
+    """
+    Create a list of x,y coordinates that describe one stratigraphic layer defined by 'top' and 'base', with variable spacing in the horiozntal direction
+    Used only with the 'plot_random_section_2_points' function
+
+    Args:
+        top: elevations of the top of the layer (array)
+        base: elevations of the base of the layer (array)
+        x: coordinates in the horizontal direction
+
+    Returns:
+        Points: list of arrays of pairs of x, y coordinates that describe the polygon(s) for the layer
+        Inds: indices of the points in 'Points' that match the indices for 'top' and 'base'; used to pick the colors of the cells
+
+    """
     ind1 = np.argwhere(top-base>0).flatten()
     ind2 = np.argwhere(np.diff(ind1)>1)
     ind2 = np.vstack((np.array([[-1]]),ind2))
@@ -407,12 +479,17 @@ def triangulate_layers2(top,base,x):
     return Points,Inds
 
 def create_triangles(vertices):
-    """function for creating list of triangles from vertices
-    inputs:
-    vertices - 2 x n array with coordinates of polygon
-    returns:
-    triangles - indices of the 'vertices' array that from triangles (for triangular mesh)
-    scalars - 'fake' elevation values for each vertex of the polygon, used for coloring (relies on the base of the polygon)"""
+    """
+    Create list of triangles from vertices
+
+    Args:
+        vertices: 2 x n array with coordinates of polygon
+
+    Returns:
+        triangles: indices of the 'vertices' array that from triangles (for triangular mesh)
+        scalars: 'fake' elevation values for each vertex of the polygon, used for coloring (relies on the base of the polygon)
+        
+    """
     n = len(vertices[:,0])
     Z1 = vertices[:,1]
     triangles = []
@@ -443,15 +520,19 @@ def create_triangles(vertices):
             scalars = np.hstack((Z1[int((n+1)/2)-1:][::-1],Z1[int((n+1)/2):]))
     return triangles, scalars
 
-def create_section(profile,dx,bottom):
-    """function for creating a cross section from a top surface
-    inputs:
-    profile - elevation data for top surface
-    dx - gridcell size
-    bottom - elevation value for the bottom of the block
-    returns:
-    vertices - coordinates of vertices
-    triangles - indices of the 'vertices' array that from triangles (for triangular mesh)
+def create_section(profile, dx, bottom):
+    """
+    Create a cross section from a top surface. Used in the 'create_block_diagram' function.
+
+    Args:
+        profile: elevation data for top surface
+        dx: gridcell size
+        bottom: elevation value for the bottom of the block
+
+    Returns:
+        vertices: coordinates of vertices
+        triangles: indices of the 'vertices' array that from triangles (for triangular mesh)
+
     """
     x1 = dx*np.linspace(0, len(profile)-1, len(profile))
     x = np.hstack((x1, x1[::-1]))
@@ -465,19 +546,23 @@ def create_section(profile,dx,bottom):
     return vertices, triangles
 
 def plot_layers_on_one_side(layer_n, facies, color_mode, colors, X1, Y1, Z1, ve, triangles, vertices, scalars, colormap, norm, vmin, vmax, opacity):
-    """function for plotting layers on one side of a block
-    inputs:
-    layer_n - layer number
-    facies - 1D array of facies codes for layers
-    color_mode - determines what kind of plot is created; can be 'property', 'time', or 'facies'
-    colors - list of RGB values used if color_mode is 'facies'
-    X1,Y1,Z1 - coordinates of mesh vertices
-    ve - vertical exaggeration
-    triangles - indices of triangles used in mesh
-    vertices - coordinates of the vertices
-    scalars - scalars used for coloring the mesh in 'property' mode (= z-value of the base of current layer)
-    cmap - colormap used for layers in 'time' mode
-    norm - color normalization function used in 'time' mode"""
+    """
+    Plot layers on one side of a block, in 3D. Slow if there are lots of layers. 
+
+    Args:
+        layer_n: layer number
+        facies: 1D array of facies codes for layers
+        color_mode: determines what kind of plot is created; can be 'property', 'time', or 'facies'
+        colors: list of RGB values used if color_mode is 'facies'
+        X1,Y1,Z1: coordinates of mesh vertices
+        ve: vertical exaggeration
+        triangles: indices of triangles used in mesh
+        vertices: coordinates of the vertices
+        scalars: scalars used for coloring the mesh in 'property' mode (= z-value of the base of current layer)
+        cmap: colormap used for layers in 'time' mode
+        norm: color normalization function used in 'time' mode
+        
+    """
     if color_mode == 'time':
         cmap = matplotlib.cm.get_cmap(colormap)
         mlab.triangular_mesh(X1, Y1, ve*Z1, triangles, color = cmap(norm(layer_n))[:3], opacity = opacity)
@@ -555,7 +640,7 @@ def compute_derivatives(x,y):
     dx = np.diff(x) # first derivatives
     dy = np.diff(y)   
     ds = np.sqrt(dx**2+dy**2)
-    s = np.hstack((0,np.cumsum(ds)))
+    s = np.hstack((0, np.cumsum(ds)))
     return dx, dy, ds, s
 
 class LineBuilder:
@@ -586,7 +671,38 @@ def select_random_section(strat):
 
 def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, water_depth=100,
     sea_level=None, subsid=None, prop=None, prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, 
-    linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):   
+    linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):
+    """
+    Plot a dip section through a stratigraphic dataset
+
+    Args:
+        topo: stack of topographic surfaces
+        strat: stack of stratigraphic surfaces
+        dx: gridcell size
+        loc: location (index) of dip section
+        ve: vertical exaggeration
+        ax: axis to be used for the plot
+        xoffset: offset in the x-direction relative to 0
+        yoffset: offset in the y-direction relative to 0
+        water_depth: water depth value used to distinguish shallow water from deep water   
+        sea_level: sea (or base) level for each time step
+        subsid: array that contains the subidence / uplift values for each time step; default is 'None'
+        prop: property array used if 'color_mode' is 'property'
+        prop_cmap: colormap used for plotting properties
+        prop_vmin: 'vmin' parameter for plotting properties
+        prop_vmax: 'vmax' parameter for plotting properties
+        facies: 3D array of facies codes
+        facies_colors: color scheme for facies (list of RGB values)
+        linewidth: line thickness for plotting layers on the sides
+        line_freq: the frequency at which stratigraphic surfaces are plotted (every other surface is plotted if line_freq = 2)
+        color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'; default is 'bathymetry'
+        plot_type: can be '3D' or '2D'
+        plot_erosion: determines whether erosional surfaces are plotted or not (default is 'False')
+        erosional_surfs_thickness: line thickness for erosional surfaces
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_basement: 'True' if you want to plot the basement as a polygon (default is 'False')
+        
+    """
     depth_range = np.nanmax(strat[loc, :, :]) - np.nanmin(strat[loc, :, :])
     if depth_range > 0.1:
         if ax is None:
@@ -799,6 +915,37 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
 def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, water_depth=100, 
     sea_level=None, subsid=None, prop=None, prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, 
     linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):
+    """
+    Plot a strike section through a stratigraphic dataset
+
+    Args:
+        topo: stack of topographic surfaces
+        strat: stack of stratigraphic surfaces
+        dx: gridcell size
+        loc: location (index) of strike section
+        ve: vertical exaggeration
+        ax: axis to be used for the plot
+        xoffset: offset in the x-direction relative to 0
+        yoffset: offset in the y-direction relative to 0
+        water_depth: water depth value used to distinguish shallow water from deep water   
+        sea_level: sea (or base) level for each time step
+        subsid: array that contains the subidence / uplift values for each time step; default is 'None'
+        prop: property array used if 'color_mode' is 'property'
+        prop_cmap: colormap used for plotting properties
+        prop_vmin: 'vmin' parameter for plotting properties
+        prop_vmax: 'vmax' parameter for plotting properties
+        facies: 3D array of facies codes
+        facies_colors: color scheme for facies (list of RGB values)
+        linewidth: line thickness for plotting layers on the sides
+        line_freq: the frequency at which stratigraphic surfaces are plotted (every other surface is plotted if line_freq = 2)
+        color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'; default is 'bathymetry'
+        plot_type: can be '3D' or '2D'
+        plot_erosion: determines whether erosional surfaces are plotted or not (default is 'False')
+        erosional_surfs_thickness: line thickness for erosional surfaces
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_basement: 'True' if you want to plot the basement as a polygon (default is 'False')
+        
+    """
     depth_range = np.nanmax(strat[:, loc, :]) - np.nanmin(strat[:, loc, :])
     if depth_range > 0.1:
         if ax is None:
@@ -1009,9 +1156,45 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
             src.x = min_y + (max_y - min_y)*(src.x - src.x.min())/(src.x.max() - src.x.min())
             mlab.draw()
 
-def plot_random_section_2_points(topo, strat, dx, x1, x2, y1, y2, s1, ve, bottom, xoffset=0, yoffset=0, water_depth=100, ax=None,
+def plot_random_section_2_points(topo, strat, dx, x1, x2, y1, y2, s1, ve, bottom, ax=None, xoffset=0, yoffset=0, water_depth=100,
     sea_level=None, subsid=None, prop=None, prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, 
     linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):
+    """
+    Plot a randomly oriented section (defined by two points) through a stratigraphic dataset
+
+    Args:
+        topo: stack of topographic surfaces
+        strat: stack of stratigraphic surfaces
+        dx: gridcell size
+        x1: x-coordinate of the first point that defines the section (these are all pixel coordinates)
+        x2: x-coordinate of the second point that defines the section
+        y1: y-coordinate of the first point that defines the section
+        y2: y-coordinate of the second point that defines the section
+        s1: s-coordinate of starting point of the section (usually 0)
+        ve: vertical exaggeration
+        bottom: elevation of the bottom of the section
+        ax: axis to be used for the plot
+        xoffset: offset in the x-direction relative to 0
+        yoffset: offset in the y-direction relative to 0
+        water_depth: water depth value used to distinguish shallow water from deep water   
+        sea_level: sea (or base) level for each time step
+        subsid: array that contains the subidence / uplift values for each time step; default is 'None'
+        prop: property array used if 'color_mode' is 'property'
+        prop_cmap: colormap used for plotting properties
+        prop_vmin: 'vmin' parameter for plotting properties
+        prop_vmax: 'vmax' parameter for plotting properties
+        facies: 3D array of facies codes
+        facies_colors: color scheme for facies (list of RGB values)
+        linewidth: line thickness for plotting layers on the sides
+        line_freq: the frequency at which stratigraphic surfaces are plotted (every other surface is plotted if line_freq = 2)
+        color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'; default is 'bathymetry'
+        plot_type: can be '3D' or '2D'
+        plot_erosion: determines whether erosional surfaces are plotted or not (default is 'False')
+        erosional_surfs_thickness: line thickness for erosional surfaces
+        plot_water: 'True' if you want to plot water (default is "False')
+        plot_basement: 'True' if you want to plot the basement as a polygon (default is 'False')
+        
+    """    
 
     if ax is None:
         fig = plt.figure(figsize = (20, 20), frameon=False)
@@ -1204,6 +1387,19 @@ def plot_random_section_2_points(topo, strat, dx, x1, x2, y1, y2, s1, ve, bottom
         mlab.draw()
 
 def split_layer_by_bathymetry(x, y, sea_level, ts, max_x, water_depth, ax, f=None):
+    """
+    Split layer by bathymetry and plot the resulting polygons
+
+    Args:
+        x: x-coordinate of layer (horizontal)
+        y: y-coordinate of layer (vertical)
+        sea_level: sea level for each time step
+        ts: time step index
+        max_x: maximum value of x in the plot
+        water_depth: water depth value used to distingusih shallow water from deep water
+        ax: axis to be used for plotting
+        f: function used to apply subsidence / uplift to the layer (default is 'None')
+    """
     coords = []
     for i in range(len(x)):
         if (np.isnan(x[i]) == 0) & (np.isnan(y[i]) == 0):
@@ -1215,7 +1411,7 @@ def split_layer_by_bathymetry(x, y, sea_level, ts, max_x, water_depth, ax, f=Non
     paleo_sl = sea_level[ts]
     paleo_sl_deep = sea_level[ts] - water_depth
     line1 = LineString([(0, paleo_sl), (max_x, paleo_sl)]) # line used to split continental from marine
-    line2 = LineString([(0, paleo_sl_deep), (max_x, paleo_sl_deep)])
+    line2 = LineString([(0, paleo_sl_deep), (max_x, paleo_sl_deep)]) # line used to split shallow water from deep water
     
     if line1.intersects(sed):
         polys = split(sed, line1)
@@ -1295,6 +1491,18 @@ def split_layer_by_bathymetry(x, y, sea_level, ts, max_x, water_depth, ax, f=Non
                     ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
 
 def line_orientation(x1, y1, x2, y2):
+    """
+    Get the orientation of line in degrees. Used in the function 'plot_random_section_2_points'
+
+    Args:
+        x1: x-coordinate of first point
+        y1: y-coordinate of first point
+        x2: x-coordinate of second point
+        y2: y-coordinate of second point
+
+    Returns:
+        angle_deg: orientation of line in degrees
+    """
     # Calculate the angle of the line in radians
     angle_rad = math.atan2(y2 - y1, x2 - x1)
 
@@ -1303,7 +1511,31 @@ def line_orientation(x1, y1, x2, y2):
 
     return angle_deg
 
-def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_elevation, max_time, plotting=True, plot_raw_data=True):
+def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_elevation, max_time, plotting=True):
+    """
+    Plot time-elevation stratigraphic plot, given the elevation series for a location
+
+    Args:
+        elevation: elevation series
+        elevation_units: elevation units (used for axis labeling) 
+        time: time series
+        time_units: time units (used for axis labeling)
+        res: resolution in elevation used for differentaiting between stasis and deposition/erosion
+        max_elevation: maximum elevation value to be plotted
+        max_time: maximum time value to be plotted
+        plotting: 'True' if you want to make a plot; 'False' otherwise
+
+    Returns:
+        fig: figure handle
+        dve_data: list of cumulative time- and thickness attributes
+        duration_thickness_data: list of time- and thickness attributes
+        new_ts_labels: time step labels
+        strat_tops: elevations of stratigraphic boundaries (unconformities); includes firts and last elevation values
+        strat_top_inds: indices of 'strat_tops' in the elevation series
+        bound_inds: indices of stratigraphic time interval boundaries
+        interval_labels: time interval labels
+
+    """
     if plotting:
         fig = plt.figure(figsize=(9,6))
         ax1 = fig.add_axes([0.09, 0.08, 0.85, 0.76]) # [left, bottom, width, height]
@@ -1319,18 +1551,14 @@ def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_el
         ax3 = fig.add_axes([0.09, 0.84, 0.85, 0.08], sharex = ax1)
         ax3.set_yticks([])
         plt.setp(ax3.get_xticklabels(), visible=False)
-        # ax1.set_xlim(0, time[-1])
         ax1.set_xlim(0, max_time)
-        # elev_range = np.max(elevation) - np.min(elevation)
         elev_range = max_elevation - np.min(elevation)
         ylim1 = np.min(elevation) - 0.02 * elev_range
-        # ylim2 = np.max(elevation) + 0.02 * elev_range
         ylim2 = max_elevation + 0.02 * elev_range
         ax1.set_ylim(ylim1, ylim2)
         ax2.set_xlim(0, 1)
         ax2.set_ylim(ylim1, ylim2)
         ax3.set_ylim(0, 1)
-        # ax3.set_xlim(0, time[-1])
         ax3.set_xlim(min(time), max_time)
         ax4 = fig.add_axes([0.09, 0.92, 0.6, 0.08])
         ax4.set_xlim(0, 10)
@@ -1424,7 +1652,7 @@ def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_el
     differences = np.diff(stasis_inds)
     # Find the indices where differences are not equal to 1
     split_indices = np.where(differences != 1)[0]
-    # Split the target_indices into contiguous blocks using split_indices
+    # Split the target_indices into contiguous blocks using 'split_indices'
     blocks = np.split(stasis_inds, split_indices + 1)
     # Get the beginning and end indices of each block
     if len(blocks[0]) > 0:
@@ -1437,31 +1665,6 @@ def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_el
 
     if plotting:
         ax1.plot(time, strat, 'k--')
-        # if plot_raw_data:
-        #     for i in range(len(new_ts_labels)):
-        #         if new_ts_labels[i] == 0:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation[i], new_elevation[i+1]], 'orange', linewidth=3)
-        #         if new_ts_labels[i] == -1:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation[i], new_elevation[i+1]], 'r', linewidth=3)
-        #         if new_ts_labels[i] == 1:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation[i], new_elevation[i+1]], 'xkcd:medium blue', linewidth=3)
-        #         if new_ts_labels[i] == 2:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation[i], new_elevation[i+1]], 'gray', linewidth=3)
-        #         if new_ts_labels[i] == 3:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation[i], new_elevation[i+1]], 'y', linewidth=3)
-        # else:
-        #     for i in range(len(new_ts_labels)):
-        #         if new_ts_labels[i] == 0:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation_smooth[i], new_elevation_smooth[i+1]], 'orange', linewidth=3)
-        #         if new_ts_labels[i] == -1:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation_smooth[i], new_elevation_smooth[i+1]], 'r', linewidth=3)
-        #         if new_ts_labels[i] == 1:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation_smooth[i], new_elevation_smooth[i+1]], 'xkcd:medium blue', linewidth=3)
-        #         if new_ts_labels[i] == 2:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation_smooth[i], new_elevation_smooth[i+1]], 'gray', linewidth=3)
-        #         if new_ts_labels[i] == 3:
-        #             ax1.plot([new_times[i], new_times[i+1]], [new_elevation_smooth[i], new_elevation_smooth[i+1]], 'y', linewidth=3)
-    
         # plot stratigraphic column:
         for i in range(len(strat_tops)):
             ax2.plot([0, 1], [strat_tops[i], strat_tops[i]], color = 'xkcd:red', linewidth = 2)
@@ -1481,23 +1684,6 @@ def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_el
 
         ax1.plot([time[-1], max_time], [strat_tops[-1], strat_tops[-1]], 'k--', linewidth=0.5)
         ax1.plot([time[-1], time[-1]], [strat_tops[-1], ylim2], 'k--', linewidth=0.5)
-            
-        # # plot chronostratigraphic units:      
-        # for i in range(len(new_ts_labels)): 
-        #     x = [new_times[i], new_times[i+1], new_times[i+1], new_times[i]]
-        #     y = [0, 0, 1, 1]
-        #     if (new_ts_labels[i] == 2 or new_ts_labels[i] == 3): # vacuity
-        #         ax3.fill(x, y, facecolor='xkcd:light grey')
-        #     elif (new_ts_labels[i] == -1): # erosion 
-        #         ax3.fill(x, y, facecolor='xkcd:red')
-        #     elif (new_ts_labels[i] == 1): # preserved deposition 
-        #         ax3.fill(x, y, facecolor='xkcd:medium blue')
-        #     elif (new_ts_labels[i] == 0): # preserved stasis 
-        #         ax3.fill(x, y, facecolor='orange')
-        #     if i>0:
-        #         if new_ts_labels[i] != new_ts_labels[i-1]:
-        #             ax1.plot([new_times[i], new_times[i]], 
-        #                      [new_elevation[i], max_elevation + 0.02 * elev_range], 'k--', linewidth=0.5)
 
     inds = np.where(new_ts_labels == 1)[0]
     deposition_time = np.sum(np.diff(new_times)[inds])
@@ -1600,6 +1786,23 @@ def plot_strat_diagram(elevation, elevation_units, time, time_units, res, max_el
     return fig, dve_data, duration_thickness_data, new_ts_labels, strat_tops, strat_top_inds, bound_inds, interval_labels
 
 def find_intersection_point(x1, y1, x2, y2, x3, y3, x4, y4):
+    """
+    Find the intersection point of two lines. Used in the 'plot_strat_diagram' function.
+
+    Args:
+        x1: first x-coordinate of first line
+        y1: first y-coordinate of first line
+        x2: second x-coordinate of first line
+        y2: second y-coordinate of first line
+        x3: first x-coordinate of second line
+        y3: first y-coordinate of second line
+        x4: second x-coordinate of sceond line
+        y4: second y-coordinate of second line
+
+    Returns:
+        x_intersect: x-coordinate of the intersection point
+        y_intersect: y-coordinate of the intersection point
+    """
     # Calculate slopes and y-intercepts of the two lines
     m1 = (y2 - y1) / (x2 - x1)
     b1 = y1 - m1 * x1
@@ -1612,6 +1815,17 @@ def find_intersection_point(x1, y1, x2, y2, x3, y3, x4, y4):
     return x_intersect, y_intersect
 
 def smooth_elevation_series(etas, res):
+    """
+    Smooth elevation series so that minor fluctuations are not considered deposition or erosion.
+
+    Args:
+        etas: elevation series
+        res: threshold difference in elevation
+
+    Returns:
+        etas_new: smoothed elevation series
+
+    """
     etas_new = np.zeros(np.shape(etas))
     eta_old = etas[0]
     for i in range(len(etas)):
@@ -1624,6 +1838,17 @@ def smooth_elevation_series(etas, res):
     return etas_new
 
 def smooth_elevation_series_2D(topo, res):
+    """
+    Smooth elevation series in 2D so that minor fluctuations are not considered deposition or erosion.
+
+    Args:
+        topo: elevation surfaces
+        res: threshold difference in elevation
+
+    Returns:
+        topo_new: smoothed elevation surfaces
+        
+    """
     topo_new = np.zeros(np.shape(topo))
     topo_old = topo[:,0].copy()
     for i in range(1,topo.shape[1]):
@@ -1634,6 +1859,17 @@ def smooth_elevation_series_2D(topo, res):
     return topo_new
 
 def smooth_elevation_series_3D(topo, res):
+    """
+    Smooth elevation series in 3D so that minor fluctuations are not considered deposition or erosion.
+
+    Args:
+        topo: elevation surfaces
+        res: threshold difference in elevation
+
+    Returns:
+        topo_new: smoothed elevation surfaces
+        
+    """
     topo_new = np.zeros(np.shape(topo))
     topo_old = topo[:,:,0].copy()
     for i in range(1,topo.shape[2]):
@@ -1646,28 +1882,21 @@ def smooth_elevation_series_3D(topo, res):
 def smooth_strat_attribute(surf, smoothing_window):
     smooth_surf = surf.copy()
     smooth_surf[np.isnan(smooth_surf) == 1] = 0
-    smooth_surf=sgolay2d(smooth_surf, smoothing_window, 3)
+    smooth_surf = sgolay2d(smooth_surf, smoothing_window, 3)
     smooth_surf[np.isnan(surf)==1] = np.nan
     return smooth_surf
 
-def find_stasis(elevation):
-    s = np.minimum.accumulate(elevation[::-1])[::-1] # stratigraphic 'elevation'
-    inds = np.where(np.diff(s) == 0)[0]
-    if len(inds) > 0:
-        inds1 = np.where(np.diff(inds) > 1)[0] + 1
-        inds1 = np.hstack((0, inds1))
-        inds1 = inds[inds1]
-        inds2 = []
-        for i in range(1, len(s)-1):
-            if s[i] - s[i-1] == 0 and s[i+1] - s[i] > 0:
-                inds2.append(i)
-    else:
-        inds1 = []
-        inds2 = []
-    return inds1, inds2
-
 def topostrat(topo):
-    # convert topography to stratigraphy
+    """
+    Convert topography to stratigraphy
+
+    Args:
+        topo: array of topographic surfaces (2D or 3D)
+
+    Returns:
+        strat: array of stratigraphic surfaces
+
+    """
     if len(np.shape(topo)) == 2:
         # strat = np.minimum.accumulate(topo[::-1, :], axis=0)[::-1, :]
         strat = np.minimum.accumulate(topo[:, ::-1], axis=1)[:, ::-1]
@@ -1675,18 +1904,21 @@ def topostrat(topo):
         strat = np.minimum.accumulate(topo[:, :, ::-1], axis=2)[:, :, ::-1]
     return strat
 
-# def create_wheeler_diagram_old(topo):
-#     """create Wheeler (chronostratigraphic) diagram from a set of topographic surfaces
-#     """
-#     strat = topostrat(topo) # convert topography to stratigraphy
-#     wheeler = np.diff(topo, axis=2) # 'normal' Wheeler diagram
-#     wheeler_strat = np.diff(strat, axis=2) # array for Wheeler diagram with vacuity blanked out; this array will be a positive number if there is preserved depostion, zero otherwise
-#     vacuity = np.zeros(np.shape(wheeler)) # array for vacuity 
-#     vacuity[(wheeler>0) & (wheeler_strat==0)] = 1 # make the 'vacuity' array 1 where there was deposition (wheeler > 0) but stratigraphy is not preserved (wheeler_strat = 0)
-#     wheeler_strat[wheeler<0] = wheeler[wheeler<0] # add erosion to 'wheeler_strat' (otherwise it would only show deposition)
-#     return strat, wheeler, wheeler_strat, vacuity
-
 def create_wheeler_diagram(topo, res):
+    """
+    Create 3D chronostratigraphic diagram and related arrays
+
+    Args:
+        topo: array of topographic surfaces
+        res: threshold difference in elevation
+
+    Returns:
+        strat: array of stratigraphic surfaces
+        wheeler: chronostratigraphic array (deposition / erosion / stasis)
+        wheeler_strat: chronostratigraphic array (deposition / vacuity / erosion / stasis)
+        vacuity: array with locations of vacuity
+
+    """
     # rewritten so that it is consistent with the way stasis is computed with the 'plot_strat_diagram' function
     topo_new = smooth_elevation_series_3D(topo, res)
     wheeler = np.zeros((topo.shape[0], topo.shape[1], topo.shape[2]-1))
@@ -1701,6 +1933,20 @@ def create_wheeler_diagram(topo, res):
     return strat, wheeler, wheeler_strat, vacuity
 
 def create_wheeler_diagram_2D(topo, res):
+    """
+    Create 2D chronostratigraphic diagram and related arrays
+
+    Args:
+        topo: array of topographic surfaces
+        res: threshold difference in elevation
+
+    Returns:
+        strat: array of stratigraphic surfaces
+        wheeler: chronostratigraphic array (deposition / erosion / stasis)
+        wheeler_strat: chronostratigraphic array (deposition / vacuity / erosion / stasis)
+        vacuity: array with locations of vacuity
+        stasis: array with locations of stasis
+    """
     # rewritten so that it is consistent with the way stasis is computed with the 'plot_strat_diagram' function
     topo_new = smooth_elevation_series_2D(topo, res)
     wheeler = np.zeros((topo.shape[0], topo.shape[1]-1))
@@ -1717,6 +1963,24 @@ def create_wheeler_diagram_2D(topo, res):
     return strat, wheeler, wheeler_strat, vacuity, stasis
 
 def compute_strat_maps(strat, wheeler, wheeler_strat, vacuity):
+    """
+    Compute stratigraphic attribute maps
+
+    Args:
+        strat: array of stratigraphic surfaces
+        wheeler: chronostratigraphic array (deposition / erosion / stasis)
+        wheeler_strat: chronostratigraphic array (deposition / vacuity / erosion / stasis)
+        vacuity: array with locations of vacuity
+
+    Returns:
+        deposition_time: 2D array (map) of normalized deposition time
+        erosion_time: 2D array (map) of normalized erosion time
+        stasis_time: 2D array (map) of normalized stasis time
+        vacuity_time: 2D array (map) of normalized vacuity time
+        deposition_thickness: 2D array (map) of deposition thickness
+        erosion_thickness: 2D array (map) of erosion thickness
+
+    """
     temp = wheeler_strat.copy()
     temp[wheeler_strat<=0] = 0
     temp[wheeler_strat>0] = 1
@@ -1736,22 +2000,25 @@ def compute_strat_maps(strat, wheeler, wheeler_strat, vacuity):
     return deposition_time, erosion_time, stasis_time, vacuity_time, deposition_thickness, erosion_thickness
 
 def plot_model_cross_section_EW(strat, prop, facies, dx, xsec, color_mode, line_freq = 1, ve = False, map_aspect = 1, flattening_ind = False, units = 'm', list_of_colors = ['lemonchiffon', 'peru', 'sienna']):
-    """Plots an E-W oriented cross section through a stratigraphic model
+    """
+    Plot an E-W oriented cross section through a stratigraphic model
 
-    :param WG: well graph
-    :param strat: stratigraphic grid 
-    :param prop: property array 
-    :param facies: facies array
-    :param dx: gridcell size in the x- and y directions
-    :param xsec: index of cross section to be displayed
-    :param color_mode: determines what kind of plot is created; can be 'property' or 'facies'
-    :param flattening_ind: index of stratigraphic top that should be used for flattening; default is 'False' (= no flattening)
-    :param ve: vertical exaggeration; default is 'False'
-    :param units: units used in the model
-    :param map_aspect: the aspect ratio of the inset map that shows the location of the cross section
-    :param list_of_colors: list of named matplotlib colors that will be used when 'color_mode' is set to 'facies'
+    Args:
+        WG: well graph
+        strat: stratigraphic grid 
+        prop: property array 
+        facies: facies array
+        dx: gridcell size in the x- and y directions
+        xsec: index of cross section to be displayed
+        color_mode: determines what kind of plot is created; can be 'property' or 'facies'
+        flattening_ind: index of stratigraphic top that should be used for flattening; default is 'False' (= no flattening)
+        ve: vertical exaggeration; default is 'False'
+        units: units used in the model
+        map_aspect: the aspect ratio of the inset map that shows the location of the cross section
+        list_of_colors: list of named matplotlib colors that will be used when 'color_mode' is set to 'facies'
 
-    :return fig: figure handle
+    Returns:
+        fig: figure handle
     """
     fig = plt.figure(figsize = (10, 6))
     ax = fig.add_subplot(111)
@@ -1806,21 +2073,24 @@ def plot_model_cross_section_EW(strat, prop, facies, dx, xsec, color_mode, line_
     return fig
 
 def plot_model_cross_section_NS(strat, prop, facies, dx, xsec, color_mode, line_freq = 1, ve = False, flattening_ind = False, units = 'm', map_aspect = 1, list_of_colors = ['lemonchiffon', 'peru', 'sienna']):
-    """Plots an E-W oriented cross section through a stratigraphic model
+    """
+    Plot an E-W oriented cross section through a stratigraphic model
 
-    :param WG: well graph
-    :param strat: stratigraphic grid 
-    :param prop: property array 
-    :param facies: facies array
-    :param dx: gridcell size in the x- and y directions
-    :param xsec: index of cross section to be displayed
-    :param color_mode: determines what kind of plot is created; can be 'property' or 'facies'
-    :param flattening_ind: index of stratigraphic top that should be used for flattening; default is 'False' (= no flattening)
-    :param units: units used in the model
-    :param map_aspect: the aspect ratio of the inset map that shows the location of the cross section
-    :param list_of_colors: list of named matplotlib colors that will be used when 'color_mode' is set to 'facies'
+    Args:
+        WG: well graph
+        strat: stratigraphic grid 
+        prop: property array 
+        facies: facies array
+        dx: gridcell size in the x- and y directions
+        xsec: index of cross section to be displayed
+        color_mode: determines what kind of plot is created; can be 'property' or 'facies'
+        flattening_ind: index of stratigraphic top that should be used for flattening; default is 'False' (= no flattening)
+        units: units used in the model
+        map_aspect: the aspect ratio of the inset map that shows the location of the cross section
+        list_of_colors: list of named matplotlib colors that will be used when 'color_mode' is set to 'facies'
 
-    :return fig: figure handle
+    Returns:
+        fig: figure handle
     """
     fig = plt.figure(figsize = (10, 6))
     ax = fig.add_subplot(111)
@@ -2051,6 +2321,22 @@ def read_and_track_line(filename):
     return x_pix, y_pix
 
 def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0.1):
+    """
+    Compute attributes of erosional surfaces
+
+    Args:
+        strat: array of stratigraphic surfaces
+        time: ages of topographic surfaces
+        topo_s: array of topographic surfaces (adjusted for subsidence if needed)
+        erosion_threshold: minimum erosion value
+
+    Returns:
+        erosional_surfs_age_below: array of ages of strata below erosional surfaces
+        erosional_surfs_age_above: array of ages of strata above erosional surfaces
+        erosional_surfs_time: array of time intervals missing due to erosion
+        erosional_surfs_thickness: array of thicknesses missing due to erosion
+
+    """
     erosional_surfs_age_below = -1*np.ones(np.shape(strat))
     erosional_surfs_age_above = -1*np.ones(np.shape(strat))
     erosional_surfs_time = -1*np.ones(np.shape(strat))
@@ -2061,7 +2347,7 @@ def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0
                 elevation = topo_s[r, c, :].copy()
                 fig, dve_data, duration_thickness_data, ts_labels, strat_tops, strat_top_inds, bound_inds, interval_labels\
                       = plot_strat_diagram(elevation, 'mm', time, 'seconds', 0.5, 
-                            np.max(elevation), np.max(time), plotting=False, plot_raw_data=True)
+                            np.max(elevation), np.max(time), plotting=False)
                 for i in range(0,len(strat_tops)):
                     inds = np.where(np.abs(strat[r, c, :] - strat[r, c, strat_top_inds[i]])<erosion_threshold)[0] # 0.0001
                     if len(inds) > 0:
@@ -2076,7 +2362,7 @@ def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0
             elevation = topo_s[r, :].copy()
             fig, dve_data, duration_thickness_data, ts_labels, strat_tops, strat_top_inds, bound_inds, interval_labels \
                   = plot_strat_diagram(elevation, 'mm', time, 'minutes', 0.5, 
-                        np.max(elevation), np.max(time), plotting=False, plot_raw_data=True)
+                        np.max(elevation), np.max(time), plotting=False)
             for i in range(0,len(strat_top_inds)):
                 inds = np.where(np.abs(strat[r, :] - strat[r, strat_top_inds[i]])<erosion_threshold)[0]
                 if len(inds) > 0:
