@@ -6,7 +6,7 @@ long_description = """\
 
 setuptools.setup(
     name="stratigraph",
-    version="0.1.1",
+    version="0.1.2",
     author="Zoltan Sylvester",
     author_email="zoltan.sylvester@beg.utexas.edu",
     description="A Python module for stratigraphic visualization and analysis",
@@ -15,7 +15,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/zsylvester/stratigraph",
     packages=['stratigraph'],
-    install_requires=["python>=3.8", "numpy", "scipy", "scikit-learn", "scikit-image", 
+    install_requires=["numpy", "scipy", "scikit-learn", "scikit-image", 
         "shapely", "pillow", "matplotlib", "mayavi", "tqdm"],
     classifiers=[
         "Programming Language :: Python :: 3",
