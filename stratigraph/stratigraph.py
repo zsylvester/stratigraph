@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -15,7 +16,7 @@ import scipy
 from sklearn.cluster import KMeans
 import math
 
-def create_block_diagram(strat, dx, ve, bottom, opacity, texture=None, sea_level=None, 
+def create_block_diagram(strat, subsid, dx, ve, bottom, opacity, texture=None, sea_level=None, 
     xoffset=0, yoffset=0, scale=1, ci=None, plot_contours=False, topo_min=None, topo_max=None, plot_sides=True, 
     plot_water=False, plot_surf=True, surf_cmap='Blues', kmeans_colors=None):
     """
@@ -59,11 +60,11 @@ def create_block_diagram(strat, dx, ve, bottom, opacity, texture=None, sea_level
         vmin = scale * topo_min
         vmax = scale * topo_max
         contours = list(np.arange(vmin, vmax, ci*scale)) # list of contour values
-        mlab.contour_surf(X1, Y1, z, contours=contours, warp_scale=ve, color=(0,0,0), line_width=1.0)
+        mlab.contour_surf(X1, Y1, z.T, contours=contours, warp_scale=ve, color=(0,0,0), line_width=1.0)
     
     if plot_surf:
-        if texture is not None: # ues texture if it is provided
-            surf = mlab.mesh(X1_grid, Y1_grid, ve*z, scalars = texture, colormap=surf_cmap, vmin=0, vmax=255) 
+        if texture is not None: # use texture if it is provided
+            surf = mlab.mesh(X1_grid, Y1_grid, ve*z, scalars = texture, colormap=surf_cmap, vmin=-1, vmax=1) 
             if kmeans_colors is not None:
                 lut = surf.module_manager.scalar_lut_manager.lut.table.to_array()
                 # lut = lut[::-1,:]
@@ -71,12 +72,21 @@ def create_block_diagram(strat, dx, ve, bottom, opacity, texture=None, sea_level
                 lut[:, -1] = opacity * 255
                 surf.module_manager.scalar_lut_manager.lut.table = lut
         else: # color surface by topography / bathymetry
-            surf = mlab.mesh(X1_grid, Y1_grid, ve*z, colormap=surf_cmap, vmin=topo_min, vmax=topo_max, opacity=opacity)
+            # surf = mlab.mesh(X1_grid, Y1_grid, ve*z, colormap=surf_cmap, vmin=topo_min*ve, vmax=topo_max*ve, opacity=opacity)
+            surf = mlab.mesh(X1_grid, Y1_grid, ve*z, colormap=surf_cmap, vmin=(sea_level[ts-1]-topo_max)*ve, vmax=(sea_level[ts-1]+topo_max)*ve, opacity=opacity)
+            # Retrieve the LUT of the surf object.
+            lut = surf.module_manager.scalar_lut_manager.lut.table.to_array()
+            from cmcrameri import cm
+            new_colors = 255*np.ones((256, 4))
+            new_colors[:,:3] = 255*cm.bukavu.colors
+            lut = new_colors
+            surf.module_manager.scalar_lut_manager.lut.table = lut
+            mlab.draw()
 
     if plot_sides:
         gray = (0.6,0.6,0.6) # color for plotting sides
         z1 = strat[:,:,0].copy()
-
+        
         r,c,ts = np.shape(strat)
         # updip side:
         vertices, triangles = create_section(z1[:,0],dx,bottom) 
@@ -236,53 +246,58 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
             xoffset = x0 + (x1+i*gap)*dx
             yoffset = y0 + (y1+j*gap)*dx
             if texture is not None:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], subsid, dx, ve, bottom, opacity, texture=texture[y1:y2,x1:x2], sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap='Blues', kmeans_colors=kmeans_colors)
             else:
-                create_block_diagram(strat[y1:y2,x1:x2,:], dx, ve, bottom, opacity, texture=None, sea_level=sea_level, 
+                create_block_diagram(strat[y1:y2,x1:x2,:], subsid, dx, ve, bottom, opacity, texture=None, sea_level=sea_level, 
                     xoffset=xoffset, yoffset=yoffset, scale=scale, ci=ci, plot_contours=plot_contours, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
                     plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
             if color_mode == 'bathymetry' or color_mode == 'sea_level' or color_mode == 'sea_level_change':
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode=color_mode, plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False, water_depth=water_depth)
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode=color_mode, plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False, water_depth=water_depth)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode=color_mode, plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False, water_depth=water_depth)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode=color_mode, plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False, water_depth=water_depth)
 
             if color_mode == 'property':
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, prop=prop[y1:y2, x1:x2, :], 
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], prop=prop[y1:y2, x1:x2, :], 
                     prop_cmap=prop_cmap, prop_vmin=prop_vmin, prop_vmax=prop_vmax, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='property', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, prop=prop[y1:y2, x1:x2, :], 
+                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], prop=prop[y1:y2, x1:x2, :], 
                     prop_cmap=prop_cmap, prop_vmin=prop_vmin, prop_vmax=prop_vmax, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='property', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, prop=prop[y1:y2, x1:x2, :], 
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], prop=prop[y1:y2, x1:x2, :], 
                     prop_cmap=prop_cmap, prop_vmin=prop_vmin, prop_vmax=prop_vmax, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='property', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, prop=prop[y1:y2, x1:x2, :], 
+                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid[y1:y2, x1:x2, :], prop=prop[y1:y2, x1:x2, :], 
                     prop_cmap=prop_cmap, prop_vmin=prop_vmin, prop_vmax=prop_vmax, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='property', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False) 
 
             if color_mode == 'facies':
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
-                    facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
-                    color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
-                    facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
-                    color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
-                    facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
-                    color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
-                plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
-                    facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
-                    color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                # plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
+                #     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                #     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                # plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
+                #     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                #     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                # plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
+                #     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                #     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                # plot_strike_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, x2-x1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, facies=facies[y1:y2, x1:x2, :], 
+                #     facies_colors = facies_colors, sea_level = sea_level, linewidth=linewidth, line_freq=line_freq, 
+                #     color_mode='facies', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
+                plot_surfs = True
+                add_stratigraphy_to_block_diagram(strat[y1:y2, x1:x2,:], None, facies[y1:y2,x1:x2,:], dx, ve, xoffset, yoffset, scale, plot_surfs, color_mode='facies', 
+                        colors=facies_colors, colormap='viridis', line_thickness=0.25, opacity=1.0)
 
             if color_mode == 'age':
+                if subsid is not None:
+                    subsid = subsid[y1:y2, x1:x2, :]
                 plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, 0, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
                     color_mode='age', plot_type='3D', plot_erosion=False, plot_water=False, plot_basement=False)
                 plot_dip_section(topo[y1:y2, x1:x2, :], strat[y1:y2, x1:x2, :], dx, y2-y1-1, ve, xoffset=xoffset, yoffset=yoffset, subsid = subsid, linewidth=linewidth, line_freq=line_freq, 
@@ -296,6 +311,124 @@ def create_exploded_view(topo, strat, nx, ny, gap, dx, ve, color_mode, linewidth
             count = count+1
             # print("block "+str(count)+" done, out of "+str(nx*ny)+" blocks")
     return x_inds, y_inds
+
+def add_stratigraphy_to_block_diagram(strat, prop, facies, dx, ve, xoffset, yoffset, scale, plot_surfs, color_mode, colors, colormap, line_thickness, opacity):
+    """function for adding stratigraphy to the sides of a block diagram
+    colors layers by relative age
+    strat - input array with stratigraphic surfaces
+    facies - 1D array of facies codes for layers
+    h - channel depth (height of point bar)
+    thalweg_z - array of thalweg elevations for each layer
+    dx - size of gridcells in the horizontal direction in 'strat'
+    ve - vertical exaggeration
+    offset - offset in the y-direction relative to 0
+    scale - scaling factor
+    plot_surfs - if equals 1, stratigraphic boundaries will be plotted on the sides as black lines
+    color_mode - determines what kind of plot is created; can be 'property', 'time', or 'facies'
+    colors - colors scheme for facies (list of RGB values)
+    line_thickness - tube radius for plotting layers on the sides
+    export - if equals 1, the display can be saved as a VRML file for use in other programs (e.g., 3D printing)""" 
+    r,c,ts=np.shape(strat)
+    if color_mode == 'time':
+        norm = matplotlib.colors.Normalize(vmin=0.0, vmax=ts-1)
+        cmap = matplotlib.cm.get_cmap(colormap)
+    if (color_mode == 'property') | (color_mode == 'facies'):
+        norm = matplotlib.colors.Normalize(vmin=0.0, vmax=0.35)
+        cmap = matplotlib.cm.get_cmap(colormap)
+
+    for layer_n in trange(ts-1): # main loop
+        vmin = 0.0
+        vmax = 0.35
+        top = strat[:,0,layer_n+1]  # updip side
+        base = strat[:,0,layer_n]
+        if color_mode == "property":
+            props = prop[:,0,layer_n]
+        if plot_surfs:
+            Y1 = scale*(yoffset + dx*np.arange(0,r))
+            X1 = scale*(xoffset + np.zeros(np.shape(base)))
+            Z1 = ve*scale*base
+            mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
+        if np.max(top-base)>0:
+            Points,Inds = triangulate_layers(top,base,dx)
+            for i in range(len(Points)):
+                vertices = Points[i]
+                triangles, scalars = create_triangles(vertices)
+                Y1 = scale*(yoffset + vertices[:,0])
+                X1 = scale*(xoffset + dx*0*np.ones(np.shape(vertices[:,0])))
+                Z1 = scale*vertices[:,1]
+                if color_mode == "property":
+                    scalars = props[Inds[i]]
+                else:
+                    scalars = []
+                plot_layers_on_one_side(layer_n, facies, color_mode, colors, X1, Y1, Z1, ve, triangles, vertices, scalars, colormap, norm, vmin, vmax, opacity)
+
+        top = strat[:,-1,layer_n+1]  # downdip side
+        base = strat[:,-1,layer_n]
+        if color_mode == "property":
+            props = prop[:,-1,layer_n]
+        if plot_surfs:
+            Y1 = scale*(yoffset + dx*np.arange(0,r))
+            X1 = scale*(xoffset + dx*(c-1)*np.ones(np.shape(base)))
+            Z1 = ve*scale*base
+            mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
+        if np.max(top-base)>0:
+            Points,Inds = triangulate_layers(top,base,dx)
+            for i in range(len(Points)):
+                vertices = Points[i]
+                triangles, scalars = create_triangles(vertices)
+                Y1 = scale*(yoffset + vertices[:,0])
+                X1 = scale*(xoffset + dx*(c-1)*np.ones(np.shape(vertices[:,0])))
+                Z1 = scale*vertices[:,1]
+                if color_mode == "property":
+                    scalars = props[Inds[i]]
+                else:
+                    scalars = []
+                plot_layers_on_one_side(layer_n, facies, color_mode, colors, X1, Y1, Z1, ve, triangles, vertices, scalars, colormap, norm, vmin, vmax, opacity)
+
+        top = strat[0,:,layer_n+1]  # left edge (looking downdip)
+        base = strat[0,:,layer_n]
+        if color_mode == "property":
+            props = prop[0,:,layer_n]
+        if plot_surfs:
+            Y1 = scale*(yoffset + np.zeros(np.shape(base)))
+            X1 = scale*(xoffset + dx*np.arange(0,c))
+            Z1 = ve*scale*base
+            mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
+        if np.max(top-base)>0:
+            Points,Inds = triangulate_layers(top,base,dx)
+            for i in range(len(Points)):
+                vertices = Points[i]
+                triangles, scalars = create_triangles(vertices)
+                Y1 = scale*(yoffset + dx*0*np.ones(np.shape(vertices[:,0])))
+                X1 = scale*(xoffset + vertices[:,0])
+                Z1 = scale*vertices[:,1]
+                if color_mode == "property":
+                    scalars = props[Inds[i]]
+                else:
+                    scalars = []
+                plot_layers_on_one_side(layer_n, facies, color_mode, colors, X1, Y1, Z1, ve, triangles, vertices, scalars, colormap, norm, vmin, vmax, opacity)
+        top = strat[-1,:,layer_n+1] # right edge (looking downdip)
+        base = strat[-1,:,layer_n]
+        if color_mode == "property":
+            props = prop[-1,:,layer_n]
+        if plot_surfs:
+            Y1 = scale*(yoffset + dx*(r-1)*np.ones(np.shape(base)))
+            X1 = scale*(xoffset + dx*np.arange(0,c))
+            Z1 = ve*scale*base
+            mlab.plot3d(X1,Y1,Z1,color=(0,0,0),tube_radius=line_thickness)
+        if np.max(top-base)>0:
+            Points,Inds = triangulate_layers(top,base,dx)
+            for i in range(len(Points)):
+                vertices = Points[i]
+                triangles, scalars = create_triangles(vertices)
+                Y1 = scale*(yoffset + dx*(r-1)*np.ones(np.shape(vertices[:,0])))
+                X1 = scale*(xoffset + vertices[:,0])
+                Z1 = scale*vertices[:,1]
+                if color_mode == "property":
+                    scalars = props[Inds[i]]
+                else:
+                    scalars = []
+                plot_layers_on_one_side(layer_n, facies, color_mode, colors, X1, Y1, Z1, ve, triangles, vertices, scalars, colormap, norm, vmin, vmax, opacity)
 
 def create_fence_diagram(topo, strat, nx, ny, dx, ve, color_mode, linewidth, bottom, opacity, subsid=None, prop=None, facies=None, texture=None, sea_level=None, scale=1, plot_sides=True, plot_water=False, plot_surf=False,  
     topo_min=None, topo_max=None, facies_colors=None, surf_cmap=None, prop_cmap=None, kmeans_colors=None, prop_vmin=None, prop_vmax=None, line_freq=1):
@@ -340,8 +473,8 @@ def create_fence_diagram(topo, strat, nx, ny, dx, ve, color_mode, linewidth, bot
 
     r,c,ts=np.shape(strat)
     
-    create_block_diagram(strat, dx, ve, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
-        xoffset=0, yoffset=0, scale=scale, ci=None, plot_contours=None, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
+    create_block_diagram(strat, subsid, dx, ve, bottom, opacity=opacity, texture=texture, sea_level=sea_level, 
+        xoffset=0, yoffset=0, scale=scale, ci=None, plot_contours=False, topo_min=topo_min, topo_max=topo_max, plot_sides=plot_sides, 
         plot_water=plot_water, plot_surf=plot_surf, surf_cmap=surf_cmap, kmeans_colors=kmeans_colors)
 
     x_inds = np.hstack((0, int(c/(nx+1)) * np.arange(1, nx+1), c-1))
@@ -660,7 +793,7 @@ class LineBuilder:
 def select_random_section(strat):
     fig = plt.figure(figsize=(8,6))
     ax = fig.add_subplot(111)
-    ax.imshow(strat[:,:,-1], origin='lower', cmap='viridis')
+    ax.imshow(strat[:,:,-1], cmap='viridis')
     plt.tight_layout()
     ax.set_title('click to build line segments')
     line, = ax.plot([], [])  # empty line
@@ -669,9 +802,10 @@ def select_random_section(strat):
     ycoords = linebuilder.ys
     return xcoords, ycoords
 
-def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, water_depth=100,
+def plot_dip_section(topo, strat, dx, loc, ve, bottom=None, ax=None, xoffset=0, yoffset=0, water_depth=100,
     sea_level=None, subsid=None, prop=None, prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, 
-    linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):
+    linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, 
+    erosion_threshold=0.0001, plot_water=False, plot_basement=False):
     """
     Plot a dip section through a stratigraphic dataset
 
@@ -698,7 +832,8 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
         color_mode: determines what kind of plot is created; can be 'property', 'time', 'facies', or 'bathymetry'; default is 'bathymetry'
         plot_type: can be '3D' or '2D'
         plot_erosion: determines whether erosional surfaces are plotted or not (default is 'False')
-        erosional_surfs_thickness: line thickness for erosional surfaces
+        erosional_surfs_thickness: array of erosional surface thicknesses
+        erosion_threshold: minimum erosion thickness to plot (default is 0.0001)
         plot_water: 'True' if you want to plot water (default is "False')
         plot_basement: 'True' if you want to plot the basement as a polygon (default is 'False')
         
@@ -732,6 +867,14 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                 else:
                     y = np.hstack((strat[loc, :, ts-1], strat[loc, :, ts][::-1]))
                     split_layer_by_bathymetry(x, y, sea_level, ts, c*dx, water_depth, ax, f=None)
+                # if ts == t-1 and bottom is not None:
+                #     scale = 1
+                #     gray = (0.6,0.6,0.6)
+                #     vertices, triangles = create_section(strat[loc,:,0],dx,bottom)
+                #     yb = scale*(yoffset + loc*dx*np.ones(np.shape(vertices[:,0])))
+                #     xb = scale*(xoffset + vertices[:,0])
+                #     zb = scale*ve*vertices[:,1] - ve*f(xb-xoffset)
+                #     mlab.triangular_mesh(xb, yb, zb, triangles, color=gray, opacity = 1)
                 
             else:
                 x = np.hstack((np.arange(0, c)*dx, np.arange(0, c)[::-1]*dx))
@@ -751,7 +894,8 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(ts))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(ts))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(ts))[:3])
 
                 if color_mode == 'sea_level':
                     norm = matplotlib.colors.Normalize(vmin=np.min(sea_level), vmax=np.max(sea_level))
@@ -760,7 +904,8 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
 
                 if color_mode == 'sea_level_change':
                     sl_change = np.diff(sea_level)
@@ -770,7 +915,8 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
 
                 if color_mode == 'property':
                     top = strat[loc, :, ts-1] 
@@ -813,9 +959,9 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                 temp[erosional_surfs_thickness[loc,:,ts] == -1] = np.nan
                 for j in range(len(temp)-1):
                     if erosional_surfs_thickness[loc,:,ts][j] != -1:
-                        if erosional_surfs_thickness[loc,:,ts][j] > 1:
+                        if erosional_surfs_thickness[loc,:,ts][j] > erosion_threshold:
                             if [dx*j, dx*(j+1), np.round(temp[j], 5), np.round(temp[j+1], 5)] not in lines:
-                                ax.plot([dx*j, dx*(j+1)], [temp[j], temp[j+1]], color='firebrick', linewidth=2, zorder=2*t)
+                                ax.plot([dx*j, dx*(j+1)], [temp[j], temp[j+1]], color='firebrick', linewidth=1, zorder=2*t)
                                 lines.append([dx*j, dx*(j+1), np.round(temp[j], 5), np.round(temp[j+1], 5)])
 
         # if color_mode == 'sea_level_change' or color_mode == 'sea_level':
@@ -830,20 +976,26 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
                     if (np.isnan(x[i]) == 0) & (np.isnan(y[i]) == 0):
                         coords.append((x[i],y[i]))
                 sed = Polygon(LineString(coords))
+                if sed.is_valid == False:
+                    sed = sed.buffer(0)
                 x = np.hstack((0, c*dx-dx, c*dx-dx, 0))
-                y = np.hstack((sea_level[t-1], sea_level[t-1], 0, 0))
+                # y = np.hstack((sea_level[t-1], sea_level[t-1], -200, -200))
+                y_min = np.nanmin(strat[loc, :, :]) - 20
+                y = np.hstack((sea_level[t-1], sea_level[t-1], y_min, y_min))
                 coords = []
                 for i in range(len(x)):
                     if (np.isnan(x[i]) == 0) & (np.isnan(y[i]) == 0):
                         coords.append((x[i],y[i]))
                 sl = Polygon(LineString(coords))
-                sld = sl.symmetric_difference(sed)
+                # sld = sl.symmetric_difference(sed)
+                sld = sl.intersection(sed)
                 if type(sld) == Polygon:
                     ax.fill(sld.exterior.xy[0], sld.exterior.xy[1], facecolor='lightblue')
                 else:
                     for poly in sld.geoms:
-                        if np.min(poly.exterior.xy[1]) < sea_level[t-1]:
-                            ax.fill(poly.exterior.xy[0], poly.exterior.xy[1], facecolor='lightblue')
+                        if isinstance(poly, Polygon):  # Skip Points, LineStrings, etc.
+                            if np.min(poly.exterior.xy[1]) < sea_level[t-1]:
+                                ax.fill(poly.exterior.xy[0], poly.exterior.xy[1], facecolor='lightblue')
 
         if plot_basement: # plot basement:
             x = np.hstack((np.arange(c) * dx, (c-1)*dx, 0))
@@ -864,7 +1016,7 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
             plt.tight_layout()
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
-            fig.savefig('temp.png', transparent=True, dpi=300)
+            fig.savefig('temp.png', transparent=True, dpi=600)
             plt.close(fig)
             im = plt.imread('temp.png')
             # get rid of figure margins:
@@ -912,7 +1064,7 @@ def plot_dip_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, wa
             src.x = min_y + (max_y - min_y)*(src.x - src.x.min())/(src.x.max() - src.x.min()) # vertical dimensions
             mlab.draw()
     
-def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0, water_depth=100, 
+def plot_strike_section(topo, strat, dx, loc, ve, bottom=None, ax=None, xoffset=0, yoffset=0, water_depth=100, 
     sea_level=None, subsid=None, prop=None, prop_cmap=None, prop_vmin=None, prop_vmax=None, facies=None, facies_colors=None, 
     linewidth=1, line_freq=2, color_mode='bathymetry', plot_type='3D', plot_erosion=False, erosional_surfs_thickness=None, plot_water=False, plot_basement=False):
     """
@@ -975,7 +1127,16 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
                     split_layer_by_bathymetry(x, y, sea_level, ts, r*dx, water_depth, ax, f)
                 else:
                     y = np.hstack((strat[:, loc, ts-1], strat[:, loc, ts][::-1]))
-                    split_layer_by_bathymetry(x, y, sea_level, ts, r*dx, water_depth, ax, f=None)            
+                    split_layer_by_bathymetry(x, y, sea_level, ts, r*dx, water_depth, ax, f=None)
+
+                # if ts == t-1 and bottom is not None:
+                #     scale = 1
+                #     gray = (0.6,0.6,0.6)
+                #     vertices, triangles = create_section(strat[:,loc,0],dx,bottom)
+                #     yb = scale*(yoffset + vertices[:,0])
+                #     xb = scale*(xoffset + loc*dx*np.ones(np.shape(vertices[:,0])))
+                #     zb = scale*ve*vertices[:,1] - ve*f(yb-yoffset)
+                #     mlab.triangular_mesh(xb, yb, zb, triangles, color=gray, opacity = 1)
 
             else:
                 x = np.hstack((np.arange(0, r)*dx, np.arange(0, r)[::-1]*dx))
@@ -995,7 +1156,8 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(ts))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(ts))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(ts))[:3])
 
                 if color_mode == 'sea_level':
                     norm = matplotlib.colors.Normalize(vmin=np.min(sea_level), vmax=np.max(sea_level))
@@ -1004,7 +1166,8 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sea_level[ts]))[:3])
 
                 if color_mode == 'sea_level_change':
                     sl_change = np.diff(sea_level)/3.0 # mm/hour
@@ -1014,7 +1177,8 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
                         ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
                     else:
                         for geom in sed.geoms:
-                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
+                            if isinstance(geom, Polygon):
+                                ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(sl_change[ts-1]))[:3])
 
                 if color_mode == 'property':
                     top = strat[:, loc, ts-1] 
@@ -1065,7 +1229,6 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
 
         if plot_water:
             if sea_level[t-1] > np.nanmin(strat[:, loc, -1]): # plot sea level and water
-                # x = np.hstack((np.arange(0, c)*dx, c*dx-dx, 0))
                 x = np.hstack((np.arange(0, r)*dx, r*dx-dx, 0))
                 y = np.hstack((strat[:, loc, -1], 100, 100))
                 coords = []
@@ -1085,8 +1248,9 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
                     ax.fill(sld.exterior.xy[0], sld.exterior.xy[1], facecolor='lightblue')
                 else:
                     for poly in sld.geoms:
-                        if np.min(poly.exterior.xy[1]) < sea_level[t-1]:
-                            ax.fill(poly.exterior.xy[0], poly.exterior.xy[1], facecolor='lightblue')
+                        if isinstance(poly, Polygon):  # Skip Points, LineStrings, etc.
+                            if np.min(poly.exterior.xy[1]) < sea_level[t-1]:
+                                ax.fill(poly.exterior.xy[0], poly.exterior.xy[1], facecolor='lightblue')
                 
         if plot_basement: # plot basement:
             x = np.hstack((np.arange(r) * dx, (r-1)*dx, 0))
@@ -1108,7 +1272,7 @@ def plot_strike_section(topo, strat, dx, loc, ve, ax=None, xoffset=0, yoffset=0,
             plt.tight_layout()
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
-            fig.savefig('temp.png', transparent=True, dpi=300)
+            fig.savefig('temp.png', transparent=True, dpi=600)
             plt.close(fig)
             im = plt.imread('temp.png')
             # get rid of figure margins:
@@ -1248,7 +1412,8 @@ def plot_random_section_2_points(topo, strat, dx, x1, x2, y1, y2, s1, ve, bottom
                     ax.fill(sed.exterior.xy[0], sed.exterior.xy[1], color=cmap(norm(layer_n))[:3])
                 if type(sed) == MultiPolygon:
                     for geom in sed.geoms:
-                        ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(layer_n))[:3])
+                        if isinstance(geom, Polygon):
+                            ax.fill(geom.exterior.xy[0], geom.exterior.xy[1], color=cmap(norm(layer_n))[:3])
 
 #             if color_mode == 'sea_level':
 #                 norm = matplotlib.colors.Normalize(vmin=np.min(sea_level), vmax=np.max(sea_level))
@@ -1322,7 +1487,7 @@ def plot_random_section_2_points(topo, strat, dx, x1, x2, y1, y2, s1, ve, bottom
         plt.tight_layout()
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
-        fig.savefig('temp.png', transparent=True, dpi=300)
+        fig.savefig('temp.png', transparent=True, dpi=600)
         plt.close(fig)
         im = plt.imread('temp.png')
         # get rid of figure margins:
@@ -1412,83 +1577,96 @@ def split_layer_by_bathymetry(x, y, sea_level, ts, max_x, water_depth, ax, f=Non
     paleo_sl_deep = sea_level[ts] - water_depth
     line1 = LineString([(0, paleo_sl), (max_x, paleo_sl)]) # line used to split continental from marine
     line2 = LineString([(0, paleo_sl_deep), (max_x, paleo_sl_deep)]) # line used to split shallow water from deep water
-    
-    if line1.intersects(sed):
-        polys = split(sed, line1)
-        if line2.intersects(sed):
-            polys = split(MultiPolygon(polys), line2)
-        for poly in polys.geoms:
-            if np.min(poly.exterior.xy[1]) < paleo_sl:
-                polys2 = split(poly, line2)
-                for poly2 in polys2.geoms:
-                    x1 = poly2.exterior.xy[0]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning) # ignore warnings about invalid intersections
+
+        if line1.intersects(sed):
+            polys = split(sed, line1)
+            if line2.intersects(sed):
+                polys = split(MultiPolygon(polys), line2)
+            for poly in polys.geoms:
+                if not isinstance(poly, Polygon):
+                    continue
+                if np.min(poly.exterior.xy[1]) < paleo_sl:
+                    polys2 = split(poly, line2)
+                    for poly2 in polys2.geoms:
+                        if not isinstance(poly2, Polygon):
+                            continue
+                        x1 = poly2.exterior.xy[0]
+                        if f is not None:
+                            y1 = poly2.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
+                        else:
+                            y1 = poly2.exterior.xy[1]
+                        if np.min(poly2.exterior.xy[1]) < paleo_sl_deep:
+                            ax.fill(x1, y1, color='sienna') # deep marine
+                        else:
+                            ax.fill(x1, y1, color='peru') # shallow marine
+                else:
+                    x1 = poly.exterior.xy[0]
                     if f is not None:
-                        y1 = poly2.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
+                        y1 = poly.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
                     else:
-                        y1 = poly2.exterior.xy[1]
-                    if np.min(poly2.exterior.xy[1]) < paleo_sl_deep:
-                        ax.fill(x1, y1, color='sienna') # deep marine
-                    else:
-                        ax.fill(x1, y1, color='peru') # shallow marine
-            else:
-                x1 = poly.exterior.xy[0]
-                if f is not None:
-                    y1 = poly.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
+                        y1 = poly.exterior.xy[1]
+                    ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
+                        
+        elif line2.intersects(sed):
+            polys = split(sed, line2)
+            for poly in polys.geoms:
+                if not isinstance(poly, Polygon):
+                    continue
+                if np.min(poly.exterior.xy[1]) < paleo_sl:
+                    polys2 = split(poly, line2)
+                    for poly2 in polys2.geoms:
+                        if not isinstance(poly2, Polygon):
+                            continue
+                        x1 = poly2.exterior.xy[0]
+                        if f is not None:
+                            y1 = poly2.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
+                        else:
+                            y1 = poly2.exterior.xy[1]
+                        if np.min(poly.exterior.xy[1]) < paleo_sl_deep:
+                            ax.fill(x1, y1, color='sienna') # deep marine
+                        else:
+                            ax.fill(x1, y1, color='peru') # shallow marine
                 else:
-                    y1 = poly.exterior.xy[1]
-                ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
-                    
-    elif line2.intersects(sed):
-        polys = split(sed, line2)
-        for poly in polys.geoms:
-            if np.min(poly.exterior.xy[1]) < paleo_sl:
-                polys2 = split(poly, line2)
-                for poly2 in polys2.geoms:
-                    x1 = poly2.exterior.xy[0]
+                    x1 = poly.exterior.xy[0]
                     if f is not None:
-                        y1 = poly2.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
+                        y1 = poly.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
                     else:
-                        y1 = poly2.exterior.xy[1]
-                    if np.min(poly.exterior.xy[1]) < paleo_sl_deep:
-                        ax.fill(x1, y1, color='sienna') # deep marine
-                    else:
-                        ax.fill(x1, y1, color='peru') # shallow marine
-            else:
-                x1 = poly.exterior.xy[0]
-                if f is not None:
-                    y1 = poly.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
-                else:
-                    y1 = poly.exterior.xy[1]
-                ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
-    else:
-        if type(sed) == MultiPolygon:
-            for geom in sed.geoms:
-                x1 = geom.exterior.xy[0]
-                if f is not None:
-                    y1 = geom.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
-                else:
-                    y1 = geom.exterior.xy[1]
-                if np.min(geom.exterior.xy[1]) < paleo_sl:
-                    if np.min(geom.exterior.xy[1]) < paleo_sl_deep:
-                        ax.fill(x1, y1, color='sienna') # deep marine
-                    else:
-                        ax.fill(x1, y1, color='peru') # shallow marine
-                else:
+                        y1 = poly.exterior.xy[1]
                     ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
-        elif type(sed) == Polygon:
-            x1 = sed.exterior.xy[0]
-            if f is not None:
-                y1 = sed.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
-            else:
-                y1 = sed.exterior.xy[1]
-            if len(y1) > 0:
-                if np.min(sed.exterior.xy[1]) < paleo_sl:
-                    if np.min(sed.exterior.xy[1]) < paleo_sl_deep:
-                        ax.fill(x1, y1, color='sienna') # deep marine
+        else:
+            if type(sed) == MultiPolygon:
+                for geom in sed.geoms:
+                    if not isinstance(geom, Polygon):
+                        continue
+                    x1 = geom.exterior.xy[0]
+                    if f is not None:
+                        y1 = geom.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
                     else:
-                        ax.fill(x1, y1, color='peru') # shallow marine
+                        y1 = geom.exterior.xy[1]
+                    if np.min(geom.exterior.xy[1]) < paleo_sl:
+                        if np.min(geom.exterior.xy[1]) < paleo_sl_deep:
+                            ax.fill(x1, y1, color='sienna') # deep marine
+                        else:
+                            ax.fill(x1, y1, color='peru') # shallow marine
+                    else:
+                        ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
+            elif type(sed) == Polygon:
+                x1 = sed.exterior.xy[0]
+                if f is not None:
+                    y1 = sed.exterior.xy[1] + f(x1) # resubside the y coordinates before plotting
                 else:
-                    ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
+                    y1 = sed.exterior.xy[1]
+                if len(y1) > 0:
+                    if np.min(sed.exterior.xy[1]) < paleo_sl:
+                        if np.min(sed.exterior.xy[1]) < paleo_sl_deep:
+                            ax.fill(x1, y1, color='sienna') # deep marine
+                        else:
+                            ax.fill(x1, y1, color='peru') # shallow marine
+                    else:
+                        ax.fill(x1, y1, color='lemonchiffon') # fluvio-deltaic
 
 def line_orientation(x1, y1, x2, y2):
     """
@@ -2320,7 +2498,7 @@ def read_and_track_line(filename):
     y_pix = y_pix[clinds]
     return x_pix, y_pix
 
-def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0.1):
+def compute_erosional_surf_attributes(strat, time, topo, erosion_threshold = 0.1):
     """
     Compute attributes of erosional surfaces
 
@@ -2335,34 +2513,51 @@ def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0
         erosional_surfs_age_above: array of ages of strata above erosional surfaces
         erosional_surfs_time: array of time intervals missing due to erosion
         erosional_surfs_thickness: array of thicknesses missing due to erosion
+        erosional_surfs_age_of_first_erosion: array of ages of first erosion event
 
     """
     erosional_surfs_age_below = -1*np.ones(np.shape(strat))
     erosional_surfs_age_above = -1*np.ones(np.shape(strat))
     erosional_surfs_time = -1*np.ones(np.shape(strat))
     erosional_surfs_thickness = -1*np.ones(np.shape(strat))
+    erosional_surfs_age_of_first_erosion =  -1*np.ones(np.shape(strat))
     if strat.ndim == 3:
         for r in trange(strat.shape[0]):
             for c in range(strat.shape[1]):
-                elevation = topo_s[r, c, :].copy()
+                elevation = topo[r, c, :].copy()
                 fig, dve_data, duration_thickness_data, ts_labels, strat_tops, strat_top_inds, bound_inds, interval_labels\
-                      = plot_strat_diagram(elevation, 'mm', time, 'seconds', 0.5, 
+                      = plot_strat_diagram(elevation, 'mm', time, 'seconds', erosion_threshold, 
                             np.max(elevation), np.max(time), plotting=False)
+                strat_tops = np.unique(strat_tops)
+                strat_top_inds = np.unique(strat_top_inds)
                 for i in range(0,len(strat_tops)):
-                    inds = np.where(np.abs(strat[r, c, :] - strat[r, c, strat_top_inds[i]])<erosion_threshold)[0] # 0.0001
+                    inds = np.where(np.abs(strat[r, c, :] - strat[r, c, strat_top_inds[i]])<erosion_threshold)[0]
                     if len(inds) > 0:
+                        temp_ind = [np.where(elevation[inds] == np.max(elevation[inds]))[0][0]]
+                        if len(temp_ind)>0:
+                            temp_ind = temp_ind[-1]
+                        else:
+                            temp_ind = 0
+                        first_erosion_ind = inds[0]+temp_ind
+                        # if len(np.where(ts_labels[inds[0]:inds[-1]]==-1)[0])>0:
+                        #     first_erosion_ind = inds[0]+np.where(ts_labels[inds[0]:inds[-1]]==-1)[0][0]
+                        # else:
+                        #     first_erosion_ind = inds[0]
                         for ind in inds:
                             erosional_surfs_age_below[r, c, ind] = inds[0]
                             erosional_surfs_age_above[r, c, ind] = inds[-1]
                             erosional_surfs_time[r, c, ind] = len(inds)
+                            erosional_surfs_age_of_first_erosion[r, c, ind] = first_erosion_ind
                         eroded_thickness = np.max(elevation[inds[0]:inds[-1]+1]) - elevation[inds[-1]]
                         erosional_surfs_thickness[r, c, inds[0]:inds[-1]+1] = eroded_thickness
     if strat.ndim == 2:
         for r in trange(strat.shape[0]):
-            elevation = topo_s[r, :].copy()
+            elevation = topo[r, :].copy()
             fig, dve_data, duration_thickness_data, ts_labels, strat_tops, strat_top_inds, bound_inds, interval_labels \
-                  = plot_strat_diagram(elevation, 'mm', time, 'minutes', 0.5, 
+                  = plot_strat_diagram(elevation, 'mm', time, 'minutes', erosion_threshold, 
                         np.max(elevation), np.max(time), plotting=False)
+            strat_tops = np.unique(strat_tops)
+            strat_top_inds = np.unique(strat_top_inds)
             for i in range(0,len(strat_top_inds)):
                 inds = np.where(np.abs(strat[r, :] - strat[r, strat_top_inds[i]])<erosion_threshold)[0]
                 if len(inds) > 0:
@@ -2372,4 +2567,4 @@ def compute_erosional_surf_attributes(strat, time, topo_s, erosion_threshold = 0
                         erosional_surfs_time[r, ind] = len(inds)
                     eroded_thickness = np.max(elevation[inds[0]:inds[-1]+1]) - elevation[inds[-1]]
                     erosional_surfs_thickness[r, inds[0]:inds[-1]+1] = eroded_thickness
-    return erosional_surfs_age_below, erosional_surfs_age_above, erosional_surfs_time, erosional_surfs_thickness
+    return erosional_surfs_age_below, erosional_surfs_age_above, erosional_surfs_time, erosional_surfs_thickness, erosional_surfs_age_of_first_erosion
