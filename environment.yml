@@ -2,16 +2,17 @@ name: stratigraph
 
 channels:
   - conda-forge
-  - defaults
 
 dependencies:
-  - python=3.11
-  - numpy
-  - matplotlib=3.7.1
-  - pyqt=5.15.7
+  - python>=3.11,<3.13          # Python 3.13 has compatibility issues with scientific packages
+  - numpy>=1.24,<2.0            # NumPy 2.0 removed numpy.in1d, breaking VTK
+  - matplotlib>=3.5,<3.8        # Matplotlib 3.8+ removed InsetPosition
+  - cmocean
+  - pyqt                        # Qt5 - do not install pyqt6 alongside this
   - pandas
   - jupyterlab
   - mayavi
+  - vtk>=9.2                    # Ensure VTK is compatible with the NumPy version
   - scipy
   - scikit-image
   - scikit-learn
